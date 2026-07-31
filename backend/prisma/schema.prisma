@@ -17,6 +17,7 @@ model User {
   role                String         @default("TEAM_MEMBER") // SUPER_ADMIN, DEPARTMENT_ADMIN, TEAM_MEMBER
   designation         String?
   isApproved          Boolean        @default(false)
+  isActive            Boolean        @default(true)
   
   // Auth Fields
   refreshToken        String?
@@ -96,12 +97,18 @@ model Project {
   startDate       DateTime?
   targetDate      DateTime?
   progress        Int            @default(0)
+  plannedProgress Int            @default(0)
+  variance        Float          @default(0)
+  expectedFinish  DateTime?
+  riskLevel       String         @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  health          String         @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
   sectionId       String?
   section         Section?       @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   tasks           Task[]
+  dailyPlans      DailyPlan[]    @relation("DailyPlanProjects")
 }
 
 model Task {
@@ -136,10 +143,16 @@ model Task {
 
   // Sqlite doesn't support String[] natively, so we use a comma-separated string
   tags               String?
-  attachmentUrl      String?
+  attachmentUrl      String? // Can store comma-separated URLs for multiple attachments
+  closingStatusText  String? // Evening closing remarks
+
+  dependencies       Task[]  @relation("TaskDependencies")
+  dependentTasks     Task[]  @relation("TaskDependencies")
 
   delayHistory       TaskDelayHistory[]
   blockHistory       TaskBlockHistory[]
+
+  dailyPlans         DailyPlan[]  @relation("DailyPlanTasks")
 
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
@@ -179,6 +192,9 @@ model DailyPlan {
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   date            DateTime    @default(now())
   planText        String
+  
+  projects        Project[]   @relation("DailyPlanProjects")
+  tasks           Task[]      @relation("DailyPlanTasks")
   
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

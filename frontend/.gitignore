@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Ignore ZIP files
+*.zip
+
+# Ignore logs
+*.log
+
+# Ignore cache
+__pycache__/
+*.pyc

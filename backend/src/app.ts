@@ -24,10 +24,16 @@ app.get('/health', (req, res) => {
 import authRoutes from './routes/authRoutes';
 import masterDataRoutes from './routes/masterDataRoutes';
 import taskRoutes from './routes/taskRoutes';
+import projectRoutes from './routes/projectRoutes';
+import dailyPlanRoutes from './routes/dailyPlanRoutes';
+import operationRoutes from './routes/operationRoutes';
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/master-data', masterDataRoutes);
 app.use('/api/v1/tasks', taskRoutes);
+app.use('/api/v1/projects', projectRoutes);
+app.use('/api/v1/daily-plans', dailyPlanRoutes);
+app.use('/api/v1/operations', operationRoutes);
 
 // Global Error Handler
 app.use(errorHandler);

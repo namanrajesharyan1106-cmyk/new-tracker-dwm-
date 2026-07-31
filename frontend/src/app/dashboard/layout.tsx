@@ -8,32 +8,68 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import { 
   LayoutDashboard, 
   CheckSquare, 
-  Calendar, 
-  BarChart2, 
-  Users, 
-  Settings, 
+  Layers,
+  Users,
+  UserCog,
+  Calendar,
+  Activity,
+  Menu, 
+  X, 
+  Bell, 
   LogOut,
-  Menu,
-  X,
-  Bell
+  FileText,
+  PieChart,
+  ShieldAlert,
+  Settings,
+  Clock,
+  TrendingUp
 } from 'lucide-react';
-
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare },
-  { name: 'Calendar', href: '/dashboard/calendar', icon: Calendar },
-  { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
-  { name: 'Team', href: '/dashboard/team', icon: Users },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-];
+import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, logout } = useAuth();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DEPARTMENT_ADMIN';
+
+  const navigationGroups = [
+    {
+      group: 'Operations',
+      adminOnly: false,
+      items: [
+        { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, adminOnly: false },
+        { name: 'Morning Planning', href: '/dashboard/operations/planning', icon: Calendar, adminOnly: false },
+        { name: 'Evening Closing', href: '/dashboard/operations/closing', icon: Clock, adminOnly: false },
+        { name: 'My Tasks', href: '/dashboard/operations/tasks', icon: CheckSquare, adminOnly: false },
+        { name: 'Team Tasks', href: '/dashboard/operations/tasks/team', icon: Users, adminOnly: false },
+        { name: 'Project Progress', href: '/dashboard/operations/projects', icon: Activity, adminOnly: false },
+        { name: 'Attendance', href: '/dashboard/operations/attendance', icon: UserCog, adminOnly: false },
+        { name: 'Reports', href: '/dashboard/operations/reports', icon: FileText, adminOnly: false },
+        { name: 'Analytics', href: '/dashboard/operations/analytics', icon: PieChart, adminOnly: false },
+        { name: 'Performance', href: '/dashboard/operations/performance', icon: TrendingUp, adminOnly: false },
+        { name: 'Audit Logs', href: '/dashboard/operations/audit-logs', icon: ShieldAlert, adminOnly: false },
+      ]
+    },
+    {
+      group: 'Administration',
+      adminOnly: true,
+      items: [
+        { name: 'Master Data', href: '/dashboard/administration/master-data', icon: Layers, adminOnly: true },
+        { name: 'Sections', href: '/dashboard/administration/sections', icon: LayoutDashboard, adminOnly: true },
+        { name: 'Teams', href: '/dashboard/administration/teams', icon: Users, adminOnly: true },
+        { name: 'Roles', href: '/dashboard/administration/roles', icon: UserCog, adminOnly: true },
+        { name: 'User Mapping', href: '/dashboard/administration/user-mapping', icon: Users, adminOnly: true },
+        { name: 'DRS Mapping', href: '/dashboard/administration/drs-mapping', icon: Layers, adminOnly: true },
+        { name: 'Settings', href: '/dashboard/administration/settings', icon: Settings, adminOnly: true },
+      ]
+    }
+  ];
 
   return (
     <ProtectedRoute>
@@ -54,7 +90,7 @@ export default function DashboardLayout({
                 <div className="p-2 bg-blue-500/20 rounded-lg">
                   <LayoutDashboard className="w-6 h-6 text-blue-400" />
                 </div>
-                <span className="text-xl font-bold tracking-tight">DOMS</span>
+                <span className="text-xl font-bold tracking-tight">DRS</span>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-neutral-400 hover:text-white">
                 <X className="w-6 h-6" />
@@ -62,29 +98,41 @@ export default function DashboardLayout({
             </div>
 
             <div className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
-              {navigation.map((item) => {
-                const isActive = pathname === item.href;
+              {navigationGroups.map((group) => {
+                if (group.adminOnly && !isAdmin) return null;
                 return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-                      isActive 
-                        ? 'bg-blue-600/10 text-blue-400' 
-                        : 'text-neutral-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <item.icon className={`w-5 h-5 mr-3 ${isActive ? 'text-blue-400' : 'text-neutral-500'}`} />
-                    {item.name}
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeTab"
-                        className="absolute left-0 w-1 h-8 bg-blue-500 rounded-r-full"
-                        initial={false}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                  </Link>
+                  <div key={group.group} className="mb-6">
+                    <h3 className="px-4 text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">
+                      {group.group}
+                    </h3>
+                    <div className="space-y-1">
+                      {group.items.filter(item => !item.adminOnly || isAdmin).map((item) => {
+                        const isActive = pathname === item.href;
+                        return (
+                          <Link
+                            key={item.name}
+                            href={item.href}
+                            className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
+                              isActive 
+                                ? 'bg-blue-600/10 text-blue-400' 
+                                : 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                            }`}
+                          >
+                            <item.icon className={`w-5 h-5 mr-3 ${isActive ? 'text-blue-400' : 'text-neutral-500'}`} />
+                            {item.name}
+                            {isActive && (
+                              <motion.div
+                                layoutId="activeTab"
+                                className="absolute left-0 w-1 h-8 bg-blue-500 rounded-r-full"
+                                initial={false}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                              />
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>

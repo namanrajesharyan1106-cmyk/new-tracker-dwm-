@@ -1,5 +1,26 @@
-node_modules
+node_modules/
+
 # Keep environment variables out of version control
 .env
 
 /generated/prisma
+
+# Ignore ZIP files
+*.zip
+
+# Ignore uploads
+uploads/
+
+# Ignore database files
+*.db
+
+# Ignore logs
+*.log
+
+# Ignore build output
+dist/
+build/
+
+# Ignore cache
+__pycache__/
+*.pyc

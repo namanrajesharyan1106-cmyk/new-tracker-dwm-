@@ -1,16 +1,52 @@
 import { Router } from 'express';
-import { createSection, getSections, createTeam, getTeams, getUsers, approveUser, adminCreateUser } from '../controllers/masterDataController';
+import { 
+  getSections, createSection, updateSection, deleteSection,
+  getTeams, createTeam, updateTeam, deleteTeam,
+  getUsers, adminCreateUser, updateUser, deleteUser, approveUser, updateUserMappings,
+  getTreeData, deactivateUser, activateUser, getUserStats
+} from '../controllers/masterDataController';
 import { protect, authorize } from '../middlewares/authMiddleware';
 
 const router = Router();
 
-// Only Admins can manage master data
+// Only Super Admins and Department Admins can access Master Data
 router.use(protect);
 router.use(authorize('SUPER_ADMIN', 'DEPARTMENT_ADMIN'));
 
-router.route('/sections').post(createSection).get(getSections);
-router.route('/teams').post(createTeam).get(getTeams);
-router.route('/users').get(getUsers).post(adminCreateUser);
-router.route('/users/:id/approve').put(approveUser);
+// Tree View Endpoint
+router.get('/tree', getTreeData);
+
+// Sections
+router.route('/sections')
+  .get(getSections)
+  .post(createSection);
+
+router.route('/sections/:id')
+  .put(updateSection)
+  .delete(deleteSection);
+
+// Teams
+router.route('/teams')
+  .get(getTeams)
+  .post(createTeam);
+
+router.route('/teams/:id')
+  .put(updateTeam)
+  .delete(deleteTeam);
+
+// Users
+router.route('/users')
+  .get(getUsers)
+  .post(adminCreateUser);
+
+router.route('/users/:id')
+  .put(updateUser)
+  .delete(deleteUser);
+
+router.get('/users/:id/stats', getUserStats);
+router.post('/users/:id/mappings', updateUserMappings);
+router.patch('/users/:id/approve', approveUser);
+router.patch('/users/:id/deactivate', deactivateUser);
+router.patch('/users/:id/activate', activateUser);
 
 export default router;
