@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  employeeId          String         @unique
+  name                String
+  email               String         @unique
+  mobile              String?
+  password            String
+  role                String         @default("TEAM_MEMBER") // SUPER_ADMIN, DEPARTMENT_ADMIN, TEAM_MEMBER
+  designation         String?
+  isApproved          Boolean        @default(false)
+  
+  // Auth Fields
+  refreshToken        String?
+  verificationToken   String?
+  resetPasswordToken  String?
+  resetPasswordExpire DateTime?
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  teams               UserTeamMapping[]
+  sections            UserSectionMapping[]
+
+  assignedTasks       Task[]         @relation("AssignedToUser")
+  createdTasks        Task[]         @relation("CreatedByUser")
+
+  dailyPlans          DailyPlan[]
+  dailyClosings       DailyClosing[]
+  attendance          Attendance[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+}
+
+model Section {
+  id              String         @id @default(uuid())
+  name            String         @unique
+  description     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  teams           Team[]
+  users           UserSectionMapping[]
+  projects        Project[]
+  tasks           Task[]
+}
+
+model Team {
+  id              String         @id @default(uuid())
+  name            String
+  description     String?
+  sectionId       String
+  section         Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  users           UserTeamMapping[]
+  tasks           Task[]
+
+  @@unique([name, sectionId])
+}
+
+model UserTeamMapping {
+  userId          String
+  teamId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team            Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([userId, teamId])
+}
+
+model UserSectionMapping {
+  userId          String
+  sectionId       String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  section         Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, sectionId])
+}
+
+model Project {
+  id              String         @id @default(uuid())
+  name            String
+  drsRequestId    String?        @unique
+  plant           String?
+  priority        String         @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status          String?
+  startDate       DateTime?
+  targetDate      DateTime?
+  progress        Int            @default(0)
+  sectionId       String?
+  section         Section?       @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  tasks           Task[]
+}
+
+model Task {
+  id                 String       @id @default(uuid())
+  title              String
+  description        String?
+  priority           String       @default("MEDIUM")
+  
+  projectId          String?
+  project            Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  sectionId          String?
+  section            Section?     @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  
+  teamId             String?
+  team               Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  assignedToId       String?
+  assignedTo         User?        @relation("AssignedToUser", fields: [assignedToId], references: [id])
+  
+  createdById        String
+  createdBy          User         @relation("CreatedByUser", fields: [createdById], references: [id])
+
+  status             String       @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED, DELAYED, BLOCKED, CANCELLED, OVERDUE
+  progress           Int          @default(0)
+  startDate          DateTime?
+  targetDate         DateTime?
+  completionDate     DateTime?
+  
+  estimatedHours     Float?
+  actualHours        Float?
+
+  // Sqlite doesn't support String[] natively, so we use a comma-separated string
+  tags               String?
+  attachmentUrl      String?
+
+  delayHistory       TaskDelayHistory[]
+  blockHistory       TaskBlockHistory[]
+
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model TaskDelayHistory {
+  id                   String     @id @default(uuid())
+  taskId               String
+  task                 Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  reason               String
+  customReason         String?
+  expectedCompletion   DateTime
+  estimatedDelayDays   Int
+  comments             String?
+
+  isApproved           Boolean    @default(false)
+  
+  createdAt            DateTime   @default(now())
+}
+
+model TaskBlockHistory {
+  id                   String     @id @default(uuid())
+  taskId               String
+  task                 Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  reason               String
+  blockedSince         DateTime   @default(now())
+  expectedResolution   DateTime?
+  
+  createdAt            DateTime   @default(now())
+}
+
+model DailyPlan {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime    @default(now())
+  planText        String
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([userId, date])
+}
+
+model DailyClosing {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime    @default(now())
+  closingText     String
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([userId, date])
+}
+
+model Attendance {
+  id              String           @id @default(uuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime         @default(now())
+  status          String           @default("PRESENT") // PRESENT, ABSENT, LEAVE, WFH, HALF_DAY
+  remarks         String?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([userId, date])
+}
+
+model Notification {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title           String
+  message         String
+  isRead          Boolean     @default(false)
+  
+  createdAt       DateTime    @default(now())
+}
+
+model AuditLog {
+  id              String      @id @default(uuid())
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action          String
+  entity          String
+  entityId        String
+  details         String? // Storing JSON as string for SQLite compatibility
+  
+  createdAt       DateTime    @default(now())
+}
