@@ -48,7 +48,7 @@ export default function DashboardLayout({
         { name: 'Evening Closing', href: '/dashboard/operations/closing', icon: Clock, adminOnly: false },
         { name: 'My Tasks', href: '/dashboard/operations/tasks', icon: CheckSquare, adminOnly: false },
         { name: 'Team Tasks', href: '/dashboard/operations/tasks/team', icon: Users, adminOnly: false },
-        { name: 'Project Progress', href: '/dashboard/operations/projects', icon: Activity, adminOnly: false },
+        { name: 'Requirement Workspace', href: '/dashboard/operations/projects', icon: Activity, adminOnly: false },
         { name: 'Attendance', href: '/dashboard/operations/attendance', icon: UserCog, adminOnly: false },
         { name: 'Reports', href: '/dashboard/operations/reports', icon: FileText, adminOnly: false },
         { name: 'Analytics', href: '/dashboard/operations/analytics', icon: PieChart, adminOnly: false },

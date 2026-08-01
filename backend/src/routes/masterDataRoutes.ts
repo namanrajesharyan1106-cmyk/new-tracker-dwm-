@@ -3,7 +3,7 @@ import {
   getSections, createSection, updateSection, deleteSection,
   getTeams, createTeam, updateTeam, deleteTeam,
   getUsers, adminCreateUser, updateUser, deleteUser, approveUser, updateUserMappings,
-  getTreeData, deactivateUser, activateUser, getUserStats
+  getTreeData, deactivateUser, activateUser, getUserStats, updateUserRole, updateTeamHierarchy
 } from '../controllers/masterDataController';
 import { protect, authorize } from '../middlewares/authMiddleware';
 
@@ -34,6 +34,8 @@ router.route('/teams/:id')
   .put(updateTeam)
   .delete(deleteTeam);
 
+router.put('/teams/:id/hierarchy', updateTeamHierarchy);
+
 // Users
 router.route('/users')
   .get(getUsers)
@@ -45,6 +47,9 @@ router.route('/users/:id')
 
 router.get('/users/:id/stats', getUserStats);
 router.post('/users/:id/mappings', updateUserMappings);
+router.put('/users/:id/mappings', updateUserMappings);
+router.put('/users/:id/teams', updateUserMappings);
+router.put('/users/:id/role', updateUserRole);
 router.patch('/users/:id/approve', approveUser);
 router.patch('/users/:id/deactivate', deactivateUser);
 router.patch('/users/:id/activate', activateUser);

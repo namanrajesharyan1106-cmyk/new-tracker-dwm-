@@ -31,12 +31,17 @@ model User {
   teams               UserTeamMapping[]
   sections            UserSectionMapping[]
 
-  assignedTasks       Task[]         @relation("AssignedToUser")
-  createdTasks        Task[]         @relation("CreatedByUser")
+  assignedTasks       Task[]               @relation("AssignedToUser")
+  taskAssignments     UserTaskMapping[]    @relation("UserTaskAssignments")
+  createdTasks        Task[]               @relation("CreatedByUser")
 
   dailyPlans          DailyPlan[]
   dailyClosings       DailyClosing[]
   attendance          Attendance[]
+  workLogs            TaskWorkLog[]
+  taskVerifications   TaskVerificationHistory[]
+  authoredMeetingNotes DailyMeetingNote[]   @relation("MeetingNoteAuthor")
+  planApprovals       DailyPlanApprovalHistory[]
   notifications       Notification[]
   auditLogs           AuditLog[]
 }
@@ -51,20 +56,25 @@ model Section {
   teams           Team[]
   users           UserSectionMapping[]
   projects        Project[]
+  activities      Activity[]
   tasks           Task[]
+  meetingNotes    DailyMeetingNote[]
 }
 
 model Team {
-  id              String         @id @default(uuid())
+  id              String               @id @default(uuid())
   name            String
   description     String?
   sectionId       String
-  section         Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  section         Section              @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   users           UserTeamMapping[]
+  projects        ProjectTeamMapping[]
+  activities      Activity[]
   tasks           Task[]
+  meetingNotes    DailyMeetingNote[]
 
   @@unique([name, sectionId])
 }
@@ -72,8 +82,8 @@ model Team {
 model UserTeamMapping {
   userId          String
   teamId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  team            Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team            Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@id([userId, teamId])
 }
@@ -81,34 +91,100 @@ model UserTeamMapping {
 model UserSectionMapping {
   userId          String
   sectionId       String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  section         Section        @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  section         Section              @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@id([userId, sectionId])
 }
 
+model Requirement {
+  id                 String       @id @default(uuid())
+  title              String
+  description        String?
+  sponsor            String?
+  manager            String?
+  department         String?
+  timeline           String?
+  budget             Float?
+  progress           Int          @default(0)
+  status             String       @default("APPROVED") // PENDING, APPROVED, PUBLISHED
+  priority           String?      @default("HIGH")
+  executionStatus    String?      @default("Not Started") // Not Started, Execution Started, In Progress, Delayed, Completed, Verified, Closed
+  assignedTeams      String?      // JSON array of assigned team names/ids
+  assignedMembers    String?      // JSON array of assigned member names/ids
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  
+  tasks              Task[]
+  activities         Activity[]
+  dailyPlans         DailyPlan[]  @relation("DailyPlanRequirements")
+}
+
 model Project {
-  id              String         @id @default(uuid())
+  id              String               @id @default(uuid())
   name            String
-  drsRequestId    String?        @unique
+  description     String?
+  drsRequestId    String?              @unique
   plant           String?
-  priority        String         @default("MEDIUM") // LOW, MEDIUM, HIGH
+  priority        String               @default("MEDIUM")
   status          String?
   startDate       DateTime?
   targetDate      DateTime?
-  progress        Int            @default(0)
-  plannedProgress Int            @default(0)
-  variance        Float          @default(0)
+  progress        Int                  @default(0)
+  plannedProgress Int                  @default(0)
+  variance        Float                @default(0)
   expectedFinish  DateTime?
-  riskLevel       String         @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
-  health          String         @default("ON_TRACK") // ON_TRACK, AT_RISK, OFF_TRACK
+  riskLevel       String               @default("LOW")
+  health          String               @default("ON_TRACK")
+  sponsor         String?
+  manager         String?
+  budget          Float?
+  customer        String?
   sectionId       String?
-  section         Section?       @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  section         Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  teams           ProjectTeamMapping[]
+  activities      Activity[]
+  tasks           Task[]
+  dailyPlans      DailyPlan[]          @relation("DailyPlanProjects")
+}
+
+model ProjectTeamMapping {
+  projectId       String
+  teamId          String
+  project         Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team            Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, teamId])
+}
+
+model Activity {
+  id              String               @id @default(uuid())
+  name            String
+  description     String?
+  requirementId   String?
+  requirement     Requirement?         @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  projectId       String?
+  project         Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  sectionId       String?
+  section         Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  teamId          String?
+  team            Team?                @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  startDate       DateTime?
+  targetDate      DateTime?
+  priority        String               @default("MEDIUM")
+  status          String               @default("NOT_STARTED")
+  estimatedHours  Float?
+  actualHours     Float?
+  progress        Int                  @default(0)
+  remarks         String?
 
   tasks           Task[]
-  dailyPlans      DailyPlan[]    @relation("DailyPlanProjects")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 }
 
 model Task {
@@ -116,9 +192,17 @@ model Task {
   title              String
   description        String?
   priority           String       @default("MEDIUM")
-  
+  type               String       @default("TASK")
+  stageName          String?      @default("Discovery")
+
+  requirementId      String?
+  requirement        Requirement? @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
   projectId          String?
   project            Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  activityId         String?
+  activity           Activity?    @relation(fields: [activityId], references: [id], onDelete: SetNull)
 
   sectionId          String?
   section            Section?     @relation(fields: [sectionId], references: [id], onDelete: SetNull)
@@ -129,33 +213,102 @@ model Task {
   assignedToId       String?
   assignedTo         User?        @relation("AssignedToUser", fields: [assignedToId], references: [id])
   
+  assignedUsers      UserTaskMapping[]
+
   createdById        String
   createdBy          User         @relation("CreatedByUser", fields: [createdById], references: [id])
 
-  status             String       @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED, DELAYED, BLOCKED, CANCELLED, OVERDUE
+  parentTaskId       String?
+  parentTask         Task?        @relation("SubTasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks           Task[]       @relation("SubTasks")
+
+  status             String       @default("NOT_STARTED")
   progress           Int          @default(0)
   startDate          DateTime?
   targetDate         DateTime?
+  dueDate            DateTime?
   completionDate     DateTime?
   
   estimatedHours     Float?
   actualHours        Float?
 
-  // Sqlite doesn't support String[] natively, so we use a comma-separated string
+  isRecurring        Boolean      @default(false)
+  recurrenceInterval String?
+  delayReason        String?
+  blockReason        String?
+
+  carryForwardCount  Int          @default(0)
+  carryForwardReason String?
+  originalDate       DateTime?
+
   tags               String?
-  attachmentUrl      String? // Can store comma-separated URLs for multiple attachments
-  closingStatusText  String? // Evening closing remarks
+  attachmentUrl      String?
+  closingStatusText  String?
 
   dependencies       Task[]  @relation("TaskDependencies")
   dependentTasks     Task[]  @relation("TaskDependencies")
 
   delayHistory       TaskDelayHistory[]
   blockHistory       TaskBlockHistory[]
-
+  workLogs           TaskWorkLog[]
+  verificationHistory TaskVerificationHistory[]
+  comments           TaskComment[]
   dailyPlans         DailyPlan[]  @relation("DailyPlanTasks")
 
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+}
+
+model UserTaskMapping {
+  taskId             String
+  userId             String
+  task               Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user               User         @relation("UserTaskAssignments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+}
+
+model TaskWorkLog {
+  id                 String       @id @default(uuid())
+  taskId             String
+  task               Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date               DateTime     @default(now())
+  hoursWorked        Float
+  workSummary        String
+  remarks            String?
+  createdAt          DateTime     @default(now())
+}
+
+model TaskVerificationHistory {
+  id                 String       @id @default(uuid())
+  taskId             String
+  task               Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  verifierId         String
+  verifier           User         @relation(fields: [verifierId], references: [id], onDelete: Cascade)
+  action             String       // VERIFIED, REJECTED, CLOSED
+  comments           String?
+  createdAt          DateTime     @default(now())
+}
+
+model TaskTemplate {
+  id                 String       @id @default(uuid())
+  name               String       @unique
+  description        String?
+  category           String?      // e.g. DIGITALIZATION, SOFTWARE, MAINTENANCE
+  structure          String       // JSON string representing activities & tasks
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model TaskComment {
+  id                 String       @id @default(uuid())
+  taskId             String
+  task               Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId             String
+  comment            String
+  createdAt          DateTime     @default(now())
 }
 
 model TaskDelayHistory {
@@ -193,6 +346,23 @@ model DailyPlan {
   date            DateTime    @default(now())
   planText        String
   
+  topPriorities   String?
+  top3TaskIds     String?
+  expectedHours   Float?
+  strategy        String?
+  remarks         String?
+  supportRequired String?
+  isSubmitted     Boolean     @default(true)
+
+  approvalStatus  String      @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED, UNLOCKED
+  approvedById    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  isLocked        Boolean     @default(false)
+
+  approvalHistory DailyPlanApprovalHistory[]
+
+  requirements    Requirement[]@relation("DailyPlanRequirements")
   projects        Project[]   @relation("DailyPlanProjects")
   tasks           Task[]      @relation("DailyPlanTasks")
   
@@ -202,15 +372,62 @@ model DailyPlan {
   @@unique([userId, date])
 }
 
-model DailyClosing {
+model DailyPlanApprovalHistory {
   id              String      @id @default(uuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date            DateTime    @default(now())
-  closingText     String
-  
+  dailyPlanId     String
+  dailyPlan       DailyPlan   @relation(fields: [dailyPlanId], references: [id], onDelete: Cascade)
+  approverId      String
+  approver        User        @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  action          String      // APPROVED, REJECTED, UNLOCKED
+  comments        String?
   createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+}
+
+model DailyMeetingNote {
+  id                  String      @id @default(uuid())
+  sectionId           String?
+  section             Section?    @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  teamId              String?
+  team                Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  date                DateTime    @default(now())
+  
+  todayFocus          String
+  customerVisit       String?
+  machineBreakdown    String?
+  safetyAlert         String?
+  priorityProjects    String?
+  specialInstructions String?
+  actionItems         String?
+  attachmentUrl       String?
+
+  createdById         String
+  createdBy           User        @relation("MeetingNoteAuthor", fields: [createdById], references: [id])
+  
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model DailyClosing {
+  id                  String      @id @default(uuid())
+  userId              String
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                DateTime    @default(now())
+  closingText         String
+  
+  completedTaskIds    String?
+  pendingTaskIds      String?
+  delayedTaskIds      String?
+  blockedTaskIds      String?
+  actualHoursWorked   Float?
+  achievements        String?
+  problemsFaced       String?
+  tomorrowPriority    String?
+  supportRequired     String?
+  productivityScore   Float?
+  isSubmitted         Boolean     @default(true)
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   @@unique([userId, date])
 }
@@ -235,6 +452,8 @@ model Notification {
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   title           String
   message         String
+  entityType      String?
+  entityId        String?
   isRead          Boolean     @default(false)
   
   createdAt       DateTime    @default(now())

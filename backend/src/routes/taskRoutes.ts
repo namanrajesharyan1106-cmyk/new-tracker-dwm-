@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { 
-  createTask, getTasks, updateTask, deleteTask, 
-  bulkAssignTasks, cloneTask, updateTaskProgress 
+  createTask, getTasks, getTaskDetails, addTaskComment, updateTask, deleteTask, 
+  bulkAssignTasks, cloneTask, updateTaskProgress, createPersonalTask, assignTaskUsers,
+  logTaskDelay, logTaskBlock, addWorkLog, verifyTask, triggerRecurringTasks
 } from '../controllers/taskController';
 import { protect, authorize } from '../middlewares/authMiddleware';
-import { validate } from '../middlewares/validate';
-import { taskCreateSchema, taskUpdateSchema, taskProgressSchema, bulkAssignSchema } from '../validators/taskValidator';
 
 const router = Router();
 
@@ -13,24 +12,28 @@ const router = Router();
 router.use(protect);
 
 // ---- SHARED ROUTES ----
-// GET all tasks (filtered by user role inside controller)
 router.get('/', getTasks);
+router.get('/:id/details', getTaskDetails);
 
-// POST personal task (Users & Admins)
-router.post('/personal', validate(taskCreateSchema), createTask);
+router.post('/personal', createPersonalTask);
+router.post('/trigger-recurring', triggerRecurringTasks);
+router.post('/:id/comments', addTaskComment);
+router.post('/:id/work-logs', addWorkLog);
+router.post('/:id/delay', logTaskDelay);
+router.post('/:id/block', logTaskBlock);
+router.post('/:id/assign-users', assignTaskUsers);
+router.post('/:id/verify', verifyTask);
 
-// PUT update progress (Users & Admins)
-router.put('/:id/progress', validate(taskProgressSchema), updateTaskProgress);
+router.put('/:id/progress', updateTaskProgress);
 
-// ---- ADMIN ONLY ROUTES ----
-router.use(authorize('SUPER_ADMIN', 'DEPARTMENT_ADMIN'));
-
-router.post('/', validate(taskCreateSchema), createTask);
-router.post('/bulk-assign', validate(bulkAssignSchema), bulkAssignTasks);
+// ---- ADMIN & TEAM LEADS ROUTES ----
+router.post('/', createTask);
+router.post('/bulk-assign', bulkAssignTasks);
 router.post('/:id/clone', cloneTask);
 
 router.route('/:id')
-  .put(validate(taskUpdateSchema), updateTask)
+  .put(updateTask)
   .delete(deleteTask);
 
 export default router;
+

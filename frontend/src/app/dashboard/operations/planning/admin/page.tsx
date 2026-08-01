@@ -2,152 +2,389 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Activity, RefreshCw, Folder, CheckSquare, AlignLeft, UserCircle2 } from 'lucide-react';
+import { 
+  Users, CheckCircle2, XCircle, AlertTriangle, Lock, Unlock, 
+  Search, Filter, Plus, FileText, Activity, ShieldAlert, Award, 
+  Clock, Repeat, RefreshCw, Send, Loader2, Check 
+} from 'lucide-react';
 import api from '@/lib/axios';
 
-export default function AdminLivePlanningPage() {
-  const [plans, setPlans] = useState<any[]>([]);
+export default function TeamMorningMeetingAdminPage() {
+  const [activeTab, setActiveTab] = useState<'TEAM_MEETING' | 'DEPARTMENT_METRICS' | 'MEETING_NOTES'>('TEAM_MEETING');
   const [loading, setLoading] = useState(true);
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchLivePlans = async () => {
+  // Filters
+  const [sectionId, setSectionId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [search, setSearch] = useState('');
+
+  // Data State
+  const [membersSummary, setMembersSummary] = useState<any[]>([]);
+  const [deptMetrics, setDeptMetrics] = useState<any>(null);
+  const [meetingNotes, setMeetingNotes] = useState<any[]>([]);
+  const [sections, setSections] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+
+  // Meeting Note Form State
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [todayFocus, setTodayFocus] = useState('');
+  const [customerVisit, setCustomerVisit] = useState('');
+  const [machineBreakdown, setMachineBreakdown] = useState('');
+  const [safetyAlert, setSafetyAlert] = useState('');
+  const [priorityProjects, setPriorityProjects] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
+  const [actionItems, setActionItems] = useState('');
+  const [publishing, setPublishing] = useState(false);
+
+  useEffect(() => {
+    fetchInitialOptions();
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [teamId, sectionId, search, activeTab]);
+
+  const fetchInitialOptions = async () => {
     try {
-      const res = await api.get('/daily-plans/admin-live');
-      setPlans(res.data.data);
-      setLastRefreshed(new Date());
+      const [secRes, teamRes] = await Promise.all([
+        api.get('/master-data/sections'),
+        api.get('/master-data/teams')
+      ]);
+      setSections(secRes.data.data || []);
+      setTeams(teamRes.data.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchDashboardData = async () => {
+    try {
+      setRefreshing(true);
+      if (activeTab === 'TEAM_MEETING') {
+        const query = new URLSearchParams();
+        if (teamId) query.append('teamId', teamId);
+        if (sectionId) query.append('sectionId', sectionId);
+        if (search) query.append('search', search);
+
+        const res = await api.get(`/daily-plans/team-meeting?${query.toString()}`);
+        setMembersSummary(res.data.data || []);
+      } else if (activeTab === 'DEPARTMENT_METRICS') {
+        const res = await api.get('/daily-plans/department-metrics');
+        setDeptMetrics(res.data.data);
+      } else if (activeTab === 'MEETING_NOTES') {
+        const res = await api.get('/daily-plans/meeting-notes');
+        setMeetingNotes(res.data.data || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchLivePlans();
-    // Poll every 30 seconds for live updates
-    const interval = setInterval(fetchLivePlans, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const handleApprovePlan = async (planId: string, action: 'APPROVED' | 'REJECTED') => {
+    try {
+      await api.post(`/daily-plans/${planId}/approve`, { action });
+      fetchDashboardData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUnlockPlan = async (planId: string) => {
+    try {
+      await api.post(`/daily-plans/${planId}/unlock`);
+      fetchDashboardData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handlePublishMeetingNote = async () => {
+    try {
+      setPublishing(true);
+      await api.post('/daily-plans/meeting-notes', {
+        sectionId,
+        teamId,
+        todayFocus,
+        customerVisit,
+        machineBreakdown,
+        safetyAlert,
+        priorityProjects,
+        specialInstructions,
+        actionItems
+      });
+      setShowNoteModal(false);
+      fetchDashboardData();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pb-20">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-neutral-900/50 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Activity className="w-6 h-6 text-emerald-500" />
-            Live Daily Plans
+          <h2 className="text-3xl font-bold flex items-center gap-2 text-white">
+            <Users className="w-8 h-8 text-emerald-400" />
+            Team Morning Meeting & Department Operations
           </h2>
-          <p className="text-neutral-400 text-sm mt-1">Real-time overview of what every employee is working on today.</p>
+          <p className="text-neutral-400 text-sm mt-1">Single-screen operational view for Team Leads & Department Heads.</p>
         </div>
-        
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-neutral-500 hidden sm:block">
-            Auto-refreshes every 30s. Last: {lastRefreshed.toLocaleTimeString()}
-          </span>
+
+        <div className="flex items-center gap-2">
           <button 
-            onClick={fetchLivePlans}
-            className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl transition-colors border border-white/10"
-            title="Refresh Now"
+            onClick={fetchDashboardData}
+            className="p-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl border border-white/10 transition-colors"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <button 
+            onClick={() => setShowNoteModal(true)}
+            className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+          >
+            <Plus className="w-4 h-4" /> Publish Meeting Notes
           </button>
         </div>
       </div>
 
-      {loading && plans.length === 0 ? (
-        <div className="flex items-center justify-center p-20 text-neutral-500">Loading live plans...</div>
-      ) : plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-20 bg-neutral-900/50 rounded-2xl border border-white/10 text-neutral-500">
-          <Activity className="w-12 h-12 mb-3 text-neutral-700" />
-          <p>No plans submitted yet today.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {plans.map((plan: any) => (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              key={plan.id}
-              className="bg-neutral-900/50 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden flex flex-col"
-            >
-              {/* User Header */}
-              <div className="p-4 border-b border-white/10 bg-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-lg border border-emerald-500/30">
-                    {plan.user.name.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{plan.user.name}</h3>
-                    <p className="text-xs text-neutral-400">{plan.user.designation || plan.user.role.replace('_', ' ')} • {plan.user.employeeId}</p>
-                  </div>
-                </div>
-                <div className="text-xs text-neutral-500 text-right">
-                  Updated<br/>{new Date(plan.updatedAt).toLocaleTimeString()}
-                </div>
-              </div>
+      {/* Mode Navigation Bar */}
+      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+        <button 
+          onClick={() => setActiveTab('TEAM_MEETING')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'TEAM_MEETING' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white bg-neutral-900/50'}`}
+        >
+          Team Morning Meeting View
+        </button>
+        <button 
+          onClick={() => setActiveTab('DEPARTMENT_METRICS')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'DEPARTMENT_METRICS' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white bg-neutral-900/50'}`}
+        >
+          Department Head Dashboard
+        </button>
+        <button 
+          onClick={() => setActiveTab('MEETING_NOTES')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'MEETING_NOTES' ? 'bg-white text-black' : 'text-neutral-400 hover:text-white bg-neutral-900/50'}`}
+        >
+          Team Meeting Notes History
+        </button>
+      </div>
 
-              {/* Plan Content */}
-              <div className="p-5 flex-1 space-y-5">
+      {/* TAB 1: TEAM MORNING MEETING VIEW */}
+      {activeTab === 'TEAM_MEETING' && (
+        <div className="space-y-6">
+          
+          {/* Filters Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-neutral-900/50 p-4 rounded-xl border border-white/10">
+            <div className="relative">
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-3" />
+              <input 
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search member name or ID..."
+                className="w-full bg-neutral-950 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none"
+              />
+            </div>
+            <div>
+              <select 
+                value={sectionId}
+                onChange={e => setSectionId(e.target.value)}
+                className="w-full bg-neutral-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+              >
+                <option value="">All Sections</option>
+                {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <select 
+                value={teamId}
+                onChange={e => setTeamId(e.target.value)}
+                className="w-full bg-neutral-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+              >
+                <option value="">All Teams</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Members Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {membersSummary.map(m => (
+              <div key={m.member.id} className="bg-neutral-900/50 backdrop-blur-md border border-white/10 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
                 
-                {/* Projects */}
-                {plan.projects.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <Folder className="w-3.5 h-3.5" /> Working On Projects
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {plan.projects.map((p: any) => (
-                        <span key={p.id} className="inline-flex px-2.5 py-1 bg-amber-500/10 text-amber-400 text-xs font-medium rounded-lg border border-amber-500/20">
-                          {p.name} {p.drsRequestId && `(${p.drsRequestId})`}
-                        </span>
-                      ))}
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-white text-base">{m.member.name}</h3>
+                      <p className="text-xs text-neutral-400">{m.member.designation || m.member.role} • {m.member.employeeId}</p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${m.attendanceStatus === 'PRESENT' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                      {m.attendanceStatus}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                      <span className="text-neutral-400 block text-[10px]">Yesterday</span>
+                      <span className="font-bold text-white">{m.yesterdaySummary}</span>
+                    </div>
+                    <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                      <span className="text-neutral-400 block text-[10px]">Today's Tasks</span>
+                      <span className="font-bold text-blue-400">{m.plannedTasksCount} Planned</span>
                     </div>
                   </div>
-                )}
 
-                {/* Tasks */}
-                {plan.tasks.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <CheckSquare className="w-3.5 h-3.5" /> Tackling Tasks
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {plan.tasks.map((t: any) => (
-                        <li key={t.id} className="text-sm text-neutral-300 flex items-start gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                          <span>
-                            {t.title} 
-                            <span className="ml-2 text-[10px] text-neutral-500 uppercase font-medium">{t.status.replace('_', ' ')}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Notes */}
-                {plan.planText && (
-                  <div>
-                    <h4 className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <AlignLeft className="w-3.5 h-3.5" /> Personal Notes / Tasks
-                    </h4>
-                    <div className="bg-neutral-950/50 p-3 rounded-xl border border-white/5 text-sm text-neutral-300 whitespace-pre-wrap">
-                      {plan.planText}
+                  <div className="mt-3 space-y-2 text-xs">
+                    <div>
+                      <span className="text-neutral-400 block text-[10px] uppercase font-semibold">Today's Focus / Priorities</span>
+                      <p className="text-neutral-200 line-clamp-2 mt-0.5">{m.topPriorities}</p>
                     </div>
-                  </div>
-                )}
 
-                {plan.projects.length === 0 && plan.tasks.length === 0 && !plan.planText && (
-                  <div className="text-sm text-neutral-500 italic">User saved an empty plan.</div>
-                )}
+                    {m.supportRequired && (
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg text-amber-300">
+                        <span className="font-bold block text-[10px]">Support Required:</span>
+                        {m.supportRequired}
+                      </div>
+                    )}
+
+                    {m.blockedTasks.length > 0 && (
+                      <div className="bg-red-500/10 border border-red-500/20 p-2 rounded-lg text-red-300">
+                        <span className="font-bold block text-[10px]">Blocked Tasks ({m.blockedTasks.length}):</span>
+                        {m.blockedTasks[0].title} ({m.blockedTasks[0].blockReason})
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Team Lead Approval Bar */}
+                <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    {m.isLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Unlock className="w-3.5 h-3.5 text-neutral-500" />}
+                    <span className="text-neutral-400">{m.todayPlanStatus}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {m.isLocked ? (
+                      <button 
+                        onClick={() => handleUnlockPlan(m.member.id)}
+                        className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold"
+                      >
+                        Unlock
+                      </button>
+                    ) : (
+                      <>
+                        <button 
+                          onClick={() => handleApprovePlan(m.member.id, 'APPROVED')}
+                          className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-[10px] font-bold"
+                        >
+                          Approve
+                        </button>
+                        <button 
+                          onClick={() => handleApprovePlan(m.member.id, 'REJECTED')}
+                          className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-lg text-[10px] font-bold"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
 
               </div>
-            </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: DEPARTMENT HEAD DASHBOARD */}
+      {activeTab === 'DEPARTMENT_METRICS' && deptMetrics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-neutral-900/50 backdrop-blur-md border border-white/10 p-5 rounded-2xl">
+            <span className="text-xs text-neutral-400 block font-medium">Planning Submissions</span>
+            <span className="text-3xl font-bold text-white mt-1 block">{deptMetrics.planningSubmissions}</span>
+            <span className="text-xs text-emerald-400 mt-2 block font-semibold">{deptMetrics.planningRatio}% Compliance</span>
+          </div>
+
+          <div className="bg-neutral-900/50 backdrop-blur-md border border-white/10 p-5 rounded-2xl">
+            <span className="text-xs text-neutral-400 block font-medium">Evening Closing Submissions</span>
+            <span className="text-3xl font-bold text-white mt-1 block">{deptMetrics.closingSubmissions}</span>
+            <span className="text-xs text-indigo-400 mt-2 block font-semibold">{deptMetrics.closingRatio}% Compliance</span>
+          </div>
+
+          <div className="bg-neutral-900/50 backdrop-blur-md border border-white/10 p-5 rounded-2xl">
+            <span className="text-xs text-neutral-400 block font-medium">Blocked & Delayed Tasks</span>
+            <span className="text-3xl font-bold text-red-400 mt-1 block">{deptMetrics.blockedTasksCount + deptMetrics.delayedTasksCount}</span>
+            <span className="text-xs text-red-400 mt-2 block font-semibold">{deptMetrics.blockedTasksCount} Blocked, {deptMetrics.delayedTasksCount} Delayed</span>
+          </div>
+
+          <div className="bg-neutral-900/50 backdrop-blur-md border border-white/10 p-5 rounded-2xl">
+            <span className="text-xs text-neutral-400 block font-medium">Department Health</span>
+            <span className="text-3xl font-bold text-emerald-400 mt-1 block">{deptMetrics.departmentHealth}</span>
+            <span className="text-xs text-neutral-400 mt-2 block font-semibold">Attendance: {deptMetrics.attendanceRate}%</span>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: MEETING NOTES HISTORY */}
+      {activeTab === 'MEETING_NOTES' && (
+        <div className="space-y-4">
+          {meetingNotes.map(n => (
+            <div key={n.id} className="bg-neutral-900/50 backdrop-blur-md border border-white/10 p-5 rounded-2xl space-y-3">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-white text-base">{n.todayFocus}</h3>
+                <span className="text-xs text-neutral-400">{new Date(n.createdAt).toLocaleDateString()}</span>
+              </div>
+              {n.specialInstructions && <p className="text-xs text-neutral-300">{n.specialInstructions}</p>}
+              <div className="text-[10px] text-neutral-500">Published by {n.createdBy?.name || 'Team Lead'}</div>
+            </div>
           ))}
         </div>
       )}
+
+      {/* MEETING NOTES PUBLISH MODAL */}
+      {showNoteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 w-full max-w-xl space-y-4">
+            <h3 className="text-lg font-bold text-white">Publish Team Morning Meeting Notes</h3>
+
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 uppercase block mb-1">Today's Focus *</label>
+              <input 
+                type="text"
+                value={todayFocus}
+                onChange={e => setTodayFocus(e.target.value)}
+                placeholder="e.g. Complete Extrusion line setup & release DRS 102"
+                className="w-full bg-neutral-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-neutral-300 uppercase block mb-1">Special Instructions & Action Items</label>
+              <textarea 
+                value={specialInstructions}
+                onChange={e => setSpecialInstructions(e.target.value)}
+                placeholder="Safety alerts, priority projects, customer visit notes..."
+                className="w-full bg-neutral-950 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:outline-none h-24"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3">
+              <button onClick={() => setShowNoteModal(false)} className="px-4 py-2 text-xs text-neutral-400 hover:text-white">Cancel</button>
+              <button onClick={handlePublishMeetingNote} disabled={publishing} className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-bold rounded-xl text-xs flex items-center gap-2">
+                {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Publish Notes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

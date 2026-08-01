@@ -32,13 +32,20 @@ export const submitEveningClosing = asyncHandler(async (req: any, res: Response)
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // 1. Handle Task Updates
+  // 1. Handle Task Updates with server-side validation
   if (taskUpdates && Array.isArray(taskUpdates)) {
     for (const update of taskUpdates) {
       const { taskId, status, progress, closingStatusText, reason, expectedCompletion, estimatedDelayDays } = update;
       
       const task = await prisma.task.findUnique({ where: { id: taskId } });
       if (!task) continue;
+
+      if ((status === 'DELAYED' || status === 'BLOCKED') && (!reason || !reason.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: `Mandatory reason required for task: "${task.title}" marked as ${status}`
+        });
+      }
 
       // Update basic task info
       await prisma.task.update({
@@ -104,17 +111,62 @@ export const submitEveningClosing = asyncHandler(async (req: any, res: Response)
   res.status(200).json({ success: true, data: closing });
 });
 
-// Admin ONLY: Get Analytics Dashboard Data
+// Admin ONLY: Get Comprehensive Analytics Dashboard Data
 export const getAdminAnalytics = asyncHandler(async (req: any, res: Response) => {
-  // Simple analytics gathering
-  const totalProjects = await prisma.project.count();
-  const activeProjects = await prisma.project.count({ where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } });
-  
-  const totalTasks = await prisma.task.count();
-  const completedTasks = await prisma.task.count({ where: { status: 'COMPLETED' } });
-  const delayedTasks = await prisma.task.count({ where: { status: 'DELAYED' } });
-  const blockedTasks = await prisma.task.count({ where: { status: 'BLOCKED' } });
-  const overdueTasks = await prisma.task.count({ where: { status: 'OVERDUE' } });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    totalProjects,
+    activeProjects,
+    totalTasks,
+    completedTasks,
+    delayedTasks,
+    blockedTasks,
+    overdueTasks,
+    todayPlansCount,
+    todayClosingsCount,
+    delayHistories,
+    sections
+  ] = await Promise.all([
+    prisma.project.count(),
+    prisma.project.count({ where: { status: { notIn: ['COMPLETED', 'CANCELLED'] } } }),
+    prisma.task.count(),
+    prisma.task.count({ where: { status: 'COMPLETED' } }),
+    prisma.task.count({ where: { status: 'DELAYED' } }),
+    prisma.task.count({ where: { status: 'BLOCKED' } }),
+    prisma.task.count({ where: { status: 'OVERDUE' } }),
+    prisma.dailyPlan.count({ where: { date: { gte: today } } }),
+    prisma.dailyClosing.count({ where: { date: { gte: today } } }),
+    prisma.taskDelayHistory.findMany({ take: 50, select: { reason: true } }),
+    prisma.section.findMany({
+      include: {
+        _count: { select: { tasks: true } },
+        tasks: { select: { status: true, progress: true } }
+      }
+    })
+  ]);
+
+  // Aggregate Delay Reasons Frequency
+  const delayReasonsMap: Record<string, number> = {};
+  delayHistories.forEach(dh => {
+    delayReasonsMap[dh.reason] = (delayReasonsMap[dh.reason] || 0) + 1;
+  });
+  const delayReasons = Object.entries(delayReasonsMap).map(([reason, count]) => ({ reason, count }));
+
+  // Section Productivity metrics
+  const sectionProductivity = sections.map(s => {
+    const total = s.tasks.length;
+    const completed = s.tasks.filter(t => t.status === 'COMPLETED').length;
+    const avgProgress = total > 0 ? Math.round(s.tasks.reduce((sum, t) => sum + (t.progress || 0), 0) / total) : 0;
+    return {
+      sectionId: s.id,
+      sectionName: s.name,
+      totalTasks: total,
+      completedTasks: completed,
+      avgProgress
+    };
+  });
 
   res.status(200).json({
     success: true,
@@ -126,7 +178,14 @@ export const getAdminAnalytics = asyncHandler(async (req: any, res: Response) =>
         delayed: delayedTasks,
         blocked: blockedTasks,
         overdue: overdueTasks
-      }
+      },
+      dailyActivity: {
+        plansSubmittedToday: todayPlansCount,
+        closingsSubmittedToday: todayClosingsCount
+      },
+      delayReasons,
+      sectionProductivity
     }
   });
 });
+

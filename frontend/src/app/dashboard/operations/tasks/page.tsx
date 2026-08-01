@@ -23,6 +23,8 @@ interface Task {
   attachmentUrl: string;
 }
 
+import TaskDrawer from '@/components/TaskDrawer';
+
 export default function TasksPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'DEPARTMENT_ADMIN';
@@ -32,6 +34,9 @@ export default function TasksPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // 'all', 'my_tasks', 'created_by_me'
   
+  // Drawer State
+  const [selectedDrawerTaskId, setSelectedDrawerTaskId] = useState<string | null>(null);
+
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -99,7 +104,6 @@ export default function TasksPage() {
     e.preventDefault();
     setError('');
     try {
-      // Remove empty strings so Zod validation doesn't fail on empty UUIDs
       const payload = { ...formData };
       if (!payload.sectionId) delete payload.sectionId;
       if (!payload.teamId) delete payload.teamId;
@@ -198,6 +202,11 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <TaskDrawer 
+        taskId={selectedDrawerTaskId} 
+        onClose={() => setSelectedDrawerTaskId(null)} 
+        onTaskUpdated={fetchTasks}
+      />
       
       {/* Header & Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -287,10 +296,10 @@ export default function TasksPage() {
                     initial={{ opacity: 0 }} 
                     animate={{ opacity: 1 }} 
                     key={task.id} 
-                    className="hover:bg-white/5 transition-colors group"
+                    className="hover:bg-white/5 transition-colors group cursor-pointer"
                   >
                     {isAdmin && (
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
                         <input 
                           type="checkbox"
                           checked={selectedTasks.includes(task.id)}
@@ -302,8 +311,8 @@ export default function TasksPage() {
                         />
                       </td>
                     )}
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-white mb-1">{task.title}</div>
+                    <td className="px-6 py-4" onClick={() => setSelectedDrawerTaskId(task.id)}>
+                      <div className="font-medium text-white mb-1 hover:text-blue-400 transition-colors">{task.title}</div>
                       <div className="flex items-center gap-3 text-xs text-neutral-500">
                         {task.targetDate && (
                           <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(task.targetDate).toLocaleDateString()}</span>
@@ -313,7 +322,7 @@ export default function TasksPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4" onClick={() => setSelectedDrawerTaskId(task.id)}>
                       <div className="flex flex-col gap-2 items-start">
                         <span className={`inline-flex px-2 py-1 text-[10px] font-bold uppercase rounded border ${getStatusColor(task.status)}`}>
                           {task.status.replace('_', ' ')}
@@ -323,7 +332,7 @@ export default function TasksPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs">
+                    <td className="px-6 py-4 text-xs" onClick={() => setSelectedDrawerTaskId(task.id)}>
                       {task.assignedTo ? (
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
@@ -338,7 +347,7 @@ export default function TasksPage() {
                         <span className="text-neutral-500 italic">Unassigned</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-6 py-4 text-center" onClick={() => setSelectedDrawerTaskId(task.id)}>
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-xs font-bold text-white">{task.progress}%</span>
                         <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
@@ -349,7 +358,7 @@ export default function TasksPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         {task.progress < 100 && (
                           <button onClick={() => handleUpdateProgress(task.id, 100)} title="Mark Complete" className="p-2 text-neutral-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors">
@@ -377,6 +386,7 @@ export default function TasksPage() {
             </tbody>
           </table>
         </div>
+
         
         {/* Pagination */}
         {!loading && totalPages > 1 && (
