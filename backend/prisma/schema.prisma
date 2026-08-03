@@ -42,6 +42,7 @@ model User {
   taskVerifications   TaskVerificationHistory[]
   authoredMeetingNotes DailyMeetingNote[]   @relation("MeetingNoteAuthor")
   planApprovals       DailyPlanApprovalHistory[]
+  closingReviews      DailyClosingReviewHistory[]
   notifications       Notification[]
   auditLogs           AuditLog[]
 }
@@ -426,10 +427,28 @@ model DailyClosing {
   productivityScore   Float?
   isSubmitted         Boolean     @default(true)
 
+  reviewStatus        String      @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, NEEDS_DISCUSSION, REQUIRES_SUPPORT, CARRY_FORWARD_REQUIRED
+  reviewerId          String?
+  reviewedAt          DateTime?
+  managerRemarks      String?
+
+  reviewHistory       DailyClosingReviewHistory[]
+
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
   @@unique([userId, date])
+}
+
+model DailyClosingReviewHistory {
+  id                  String        @id @default(uuid())
+  dailyClosingId      String
+  dailyClosing        DailyClosing  @relation(fields: [dailyClosingId], references: [id], onDelete: Cascade)
+  reviewerId          String
+  reviewer            User          @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+  status              String        // APPROVED, NEEDS_DISCUSSION, REQUIRES_SUPPORT, CARRY_FORWARD_REQUIRED
+  remarks             String?
+  createdAt           DateTime      @default(now())
 }
 
 model Attendance {

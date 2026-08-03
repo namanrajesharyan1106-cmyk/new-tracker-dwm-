@@ -16,6 +16,9 @@ export default function EveningClosingPage() {
   const [closingText, setClosingText] = useState('');
   const [taskUpdates, setTaskUpdates] = useState<Record<string, any>>({});
 
+  const [morningPlan, setMorningPlan] = useState<any>(null);
+  const [todayWorkLogs, setTodayWorkLogs] = useState<any[]>([]);
+
   useEffect(() => {
     fetchInitialData();
   }, []);
@@ -23,13 +26,17 @@ export default function EveningClosingPage() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      const [taskRes, closingRes] = await Promise.all([
+      const [taskRes, closingRes, morningRes, timelineRes] = await Promise.all([
         api.get('/tasks?filter=my_tasks&limit=50'),
-        api.get('/operations/closing')
+        api.get('/operations/closing'),
+        api.get('/daily-plans/morning-summary'),
+        api.get('/daily-plans/timeline-summary')
       ]);
 
       const activeTasks = taskRes.data.data.filter((t: any) => t.status !== 'COMPLETED');
       setTasksList(activeTasks);
+      setMorningPlan(morningRes.data?.data?.existingPlan || null);
+      setTodayWorkLogs(timelineRes.data?.data?.workLogs || []);
       
       const initialUpdates: Record<string, any> = {};
       activeTasks.forEach((task: any) => {

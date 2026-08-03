@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   CheckCircle2, Clock, AlertCircle, TrendingUp, Calendar, 
   FileText, Check, Loader2, ArrowRight, ExternalLink, ShieldCheck, Sun, Moon, 
-  Users, Layers, BarChart3, AlertTriangle, ArrowUpRight 
+  Users, Layers, BarChart3, AlertTriangle, ArrowUpRight, CheckSquare, MessageSquare, Activity 
 } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/axios';
@@ -14,7 +14,9 @@ import { useAuth } from '@/context/AuthContext';
 export default function EnterpriseOverviewDashboardPage() {
   const { user } = useAuth();
   const userRole = user?.role || 'TEAM_MEMBER';
+  const isSuperAdmin = userRole === 'SUPER_ADMIN';
   const isManagerOrAdmin = userRole === 'SUPER_ADMIN' || userRole === 'DEPARTMENT_ADMIN';
+  const isTeamLeadOrManager = isManagerOrAdmin || userRole === 'TEAM_LEAD';
 
   const [tasks, setTasks] = useState<any[]>([]);
   const [requirements, setRequirements] = useState<any[]>([]);
@@ -22,9 +24,45 @@ export default function EnterpriseOverviewDashboardPage() {
   const [departmentMetrics, setDepartmentMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // Live Operations Data State
+  const [liveTeamPlans, setLiveTeamPlans] = useState<any[]>([]);
+  const [liveEveningClosings, setLiveEveningClosings] = useState<any[]>([]);
+  const [superAdminOverview, setSuperAdminOverview] = useState<any>(null);
+  const [plannedVsActualData, setPlannedVsActualData] = useState<any>(null);
+
   useEffect(() => {
     fetchDashboardSummaryData();
+    fetchLiveOperationsData();
+
+    // Auto-polling every 5 seconds for real-time visibility without browser refresh
+    const pollTimer = setInterval(() => {
+      fetchLiveOperationsData();
+    }, 5000);
+
+    return () => clearInterval(pollTimer);
   }, []);
+
+  const fetchLiveOperationsData = async () => {
+    try {
+      if (isTeamLeadOrManager) {
+        const [planRes, closingRes, pvaRes] = await Promise.all([
+          api.get('/daily-plans/team-meeting'),
+          api.get('/daily-plans/team-closing'),
+          api.get('/daily-plans/planned-vs-actual')
+        ]);
+        setLiveTeamPlans(planRes.data?.data || []);
+        setLiveEveningClosings(closingRes.data?.data || []);
+        setPlannedVsActualData(pvaRes.data?.data || null);
+      }
+
+      if (isSuperAdmin) {
+        const adminRes = await api.get('/daily-plans/admin-operations-summary');
+        setSuperAdminOverview(adminRes.data?.data || null);
+      }
+    } catch (err) {
+      console.error('Failed to poll live operations data', err);
+    }
+  };
 
   const fetchDashboardSummaryData = async () => {
     try {
@@ -64,6 +102,12 @@ export default function EnterpriseOverviewDashboardPage() {
   const isClosingSubmitted = !!morningSummary?.isClosingSubmitted;
   const morningSubmittedAt = morningSummary?.existingPlan?.createdAt;
 
+  const submittedLivePlans = liveTeamPlans.filter(p => p.todayPlanStatus === 'SUBMITTED');
+  const pendingLivePlans = liveTeamPlans.filter(p => p.todayPlanStatus !== 'SUBMITTED');
+
+  const submittedLiveClosings = liveEveningClosings.filter(c => c.todayClosingStatus === 'SUBMITTED');
+  const pendingLiveClosings = liveEveningClosings.filter(c => c.todayClosingStatus !== 'SUBMITTED');
+
   const stats = [
     { name: 'My Active Tasks', value: tasks.length.toString(), icon: CheckCircle2, color: 'text-blue-400', bg: 'bg-blue-400/10' },
     { name: 'In Progress', value: inProgressTasks.toString(), icon: Clock, color: 'text-amber-400', bg: 'bg-amber-400/10' },
@@ -73,7 +117,7 @@ export default function EnterpriseOverviewDashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto pb-24">
-      
+
       {/* 1. Welcome & Role Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-neutral-900/50 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
         <div>
@@ -92,19 +136,19 @@ export default function EnterpriseOverviewDashboardPage() {
 
         {/* Quick Navigation Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
-          <Link 
+          <Link
             href="/dashboard/operations/planning"
             className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-1.5"
           >
             <Sun className="w-3.5 h-3.5" /> Morning Planning
           </Link>
-          <Link 
+          <Link
             href="/dashboard/operations/closing"
             className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-white/10 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
           >
             <Moon className="w-3.5 h-3.5 text-purple-400" /> Evening Closing
           </Link>
-          <Link 
+          <Link
             href="/dashboard/operations/projects"
             className="px-3.5 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
           >
@@ -112,6 +156,60 @@ export default function EnterpriseOverviewDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* 1.5 Super Admin Organization-Wide Overview Bar */}
+      {isSuperAdmin && superAdminOverview && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-neutral-900 via-neutral-900/90 to-purple-950/40 border border-purple-500/30 p-6 rounded-2xl space-y-4 shadow-2xl backdrop-blur-md"
+        >
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-purple-400" />
+              <div>
+                <h3 className="text-base font-bold text-white uppercase tracking-wider">Super Admin Organization Operations Command</h3>
+                <p className="text-[11px] text-neutral-400">Enterprise-wide execution metrics across all sections and teams.</p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30 animate-pulse">
+              LIVE SYSTEM SYNC
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+              <span className="text-neutral-400 text-xs block font-semibold">Morning Submissions</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-bold text-emerald-400">{superAdminOverview.morningPlanning?.submitted}</span>
+                <span className="text-xs text-neutral-400">/ {superAdminOverview.totalActiveUsers} Active</span>
+              </div>
+              <span className="text-[10px] text-amber-400 block mt-1">{superAdminOverview.morningPlanning?.pending} Pending</span>
+            </div>
+
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+              <span className="text-neutral-400 text-xs block font-semibold">Evening Closings</span>
+              <div className="flex items-baseline gap-2 mt-1">
+                <span className="text-2xl font-bold text-purple-400">{superAdminOverview.eveningClosing?.submitted}</span>
+                <span className="text-xs text-neutral-400">/ {superAdminOverview.totalActiveUsers} Active</span>
+              </div>
+              <span className="text-[10px] text-amber-400 block mt-1">{superAdminOverview.eveningClosing?.pending} Pending</span>
+            </div>
+
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+              <span className="text-neutral-400 text-xs block font-semibold">Delayed Tasks</span>
+              <span className="text-2xl font-bold text-amber-400 mt-1 block">{superAdminOverview.delayedTasks}</span>
+              <span className="text-[10px] text-neutral-400 block mt-1">Requires deadline adjustment</span>
+            </div>
+
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10">
+              <span className="text-neutral-400 text-xs block font-semibold">Blocked Tasks</span>
+              <span className="text-2xl font-bold text-red-400 mt-1 block">{superAdminOverview.blockedTasks}</span>
+              <span className="text-[10px] text-red-300 block mt-1">Requires immediate intervention</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* 2. Key Execution Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -124,7 +222,7 @@ export default function EnterpriseOverviewDashboardPage() {
             className="p-5 rounded-2xl bg-neutral-900/50 border border-white/10 backdrop-blur-md relative overflow-hidden group"
           >
             <div className={`absolute -right-6 -top-6 w-20 h-20 rounded-full ${stat.bg} blur-2xl group-hover:scale-150 transition-transform duration-500`} />
-            
+
             <div className="flex items-center justify-between mb-3">
               <div className={`p-2.5 rounded-xl ${stat.bg}`}>
                 <stat.icon className={`w-5 h-5 ${stat.color}`} />
@@ -138,11 +236,181 @@ export default function EnterpriseOverviewDashboardPage() {
         ))}
       </div>
 
+      {/* 2.5 Real-Time Overview Widget for Manager & Team Lead (Morning + Evening) */}
+      {isTeamLeadOrManager && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Morning Planning Widget */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-neutral-900/60 border border-amber-500/20 rounded-2xl p-6 backdrop-blur-md space-y-4 shadow-xl"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Sun className="w-5 h-5 text-amber-400" />
+                  <h3 className="text-base font-bold text-white">
+                    {userRole === 'TEAM_LEAD' ? "Today's Team Morning Plans" : "Today's Morning Planning"}
+                  </h3>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">Real-time strategy & priorities visibility.</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="px-2 py-0.5 rounded font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    {submittedLivePlans.length} Submitted
+                  </span>
+                  <span className="px-2 py-0.5 rounded font-bold bg-neutral-800 text-neutral-400 border border-white/10">
+                    {pendingLivePlans.length} Pending
+                  </span>
+                </div>
+
+                <Link
+                  href="/dashboard/operations/planning/admin"
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl text-xs transition-colors flex items-center gap-1 shadow-lg shadow-amber-500/20"
+                >
+                  View <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {liveTeamPlans.length === 0 ? (
+              <div className="text-center py-6 text-neutral-500 text-xs">No morning plans available for today yet.</div>
+            ) : (
+              <div className="space-y-2.5">
+                {liveTeamPlans.slice(0, 3).map(m => (
+                  <div key={m.member.id} className="p-3 rounded-xl bg-neutral-950 border border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-white text-xs">{m.member.name}</h4>
+                        {m.submittedAt && <span className="text-[10px] text-neutral-400 font-mono">{new Date(m.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                      </div>
+                      <p className="text-[11px] text-neutral-300 line-clamp-1 mt-0.5">• Focus: {m.topPriorities}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${m.todayPlanStatus === 'SUBMITTED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-300'}`}>
+                      {m.todayPlanStatus === 'SUBMITTED' ? 'Submitted' : 'Pending'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          {/* Evening Closing Widget */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-neutral-900/60 border border-purple-500/20 rounded-2xl p-6 backdrop-blur-md space-y-4 shadow-xl"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Moon className="w-5 h-5 text-purple-400" />
+                  <h3 className="text-base font-bold text-white">
+                    {userRole === 'TEAM_LEAD' ? "Today's Team Closings" : "Today's Evening Closings"}
+                  </h3>
+                </div>
+                <p className="text-xs text-neutral-400 mt-1">Real-time evening closing & review status.</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="px-2 py-0.5 rounded font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    {submittedLiveClosings.length} Submitted
+                  </span>
+                  <span className="px-2 py-0.5 rounded font-bold bg-neutral-800 text-neutral-400 border border-white/10">
+                    {pendingLiveClosings.length} Pending
+                  </span>
+                </div>
+
+                <Link
+                  href="/dashboard/operations/planning/admin"
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-1 shadow-lg shadow-purple-500/20"
+                >
+                  Review <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {liveEveningClosings.length === 0 ? (
+              <div className="text-center py-6 text-neutral-500 text-xs">No evening closings submitted today yet.</div>
+            ) : (
+              <div className="space-y-2.5">
+                {liveEveningClosings.slice(0, 3).map(m => (
+                  <div key={m.member.id} className="p-3 rounded-xl bg-neutral-950 border border-white/10 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-white text-xs">{m.member.name}</h4>
+                        {m.submittedAt && <span className="text-[10px] text-neutral-400 font-mono">{new Date(m.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                      </div>
+                      <p className="text-[11px] text-neutral-300 line-clamp-1 mt-0.5">
+                        Done: {m.completedTasks.length} tasks • Pending: {m.pendingTasks.length} tasks • Logged: {m.actualHoursWorked}h
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold block ${m.reviewStatus === 'APPROVED' ? 'bg-emerald-500/20 text-emerald-400' : m.todayClosingStatus === 'SUBMITTED' ? 'bg-purple-500/20 text-purple-300' : 'bg-neutral-800 text-neutral-400'}`}>
+                        {m.reviewStatus === 'APPROVED' ? 'Approved' : m.todayClosingStatus === 'SUBMITTED' ? 'Submitted' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+        </div>
+      )}
+
+      {/* 2.8 Planned vs Actual Execution Matrix Summary Widget */}
+      {isTeamLeadOrManager && plannedVsActualData && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-neutral-900/60 border border-blue-500/20 rounded-2xl p-6 backdrop-blur-md space-y-4 shadow-xl"
+        >
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-400" />
+              <div>
+                <h3 className="text-base font-bold text-white">Daily Operational Matrix: Planned vs. Actual Work</h3>
+                <p className="text-xs text-neutral-400">Comparison of Morning Plans against Work Logs and Evening Closing results.</p>
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">
+              Avg Productivity: {plannedVsActualData.summary?.avgProductivity}%
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+              <span className="text-neutral-400 block text-[10px]">Planned Hours</span>
+              <span className="font-bold text-white text-base mt-0.5 block">{plannedVsActualData.summary?.totalPlannedHours} hrs</span>
+            </div>
+            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+              <span className="text-neutral-400 block text-[10px]">Actual Logged Hours</span>
+              <span className="font-bold text-blue-400 text-base mt-0.5 block">{plannedVsActualData.summary?.totalActualHours} hrs</span>
+            </div>
+            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+              <span className="text-neutral-400 block text-[10px]">Active Members Monitored</span>
+              <span className="font-bold text-emerald-400 text-base mt-0.5 block">{plannedVsActualData.summary?.totalMembers}</span>
+            </div>
+            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
+              <span className="text-neutral-400 block text-[10px]">Variance Ratio</span>
+              <span className="font-bold text-purple-400 text-base mt-0.5 block">
+                {Math.round(((plannedVsActualData.summary?.totalActualHours || 1) / (plannedVsActualData.summary?.totalPlannedHours || 1)) * 100)}%
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* 3. Operational Status Summary Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Morning Planning Status Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -15 }}
           animate={{ opacity: 1, x: 0 }}
           className="bg-neutral-900/50 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between space-y-4"
@@ -179,16 +447,16 @@ export default function EnterpriseOverviewDashboardPage() {
             )}
           </div>
 
-          <Link 
+          <Link
             href="/dashboard/operations/planning"
             className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20"
           >
-            Open Morning Planning <ArrowRight className="w-4 h-4" />
+            {isMorningSubmitted ? 'Edit (Until Cutoff Time)' : 'Open Morning Planning'} <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
 
         {/* Evening Closing Status Card */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-neutral-900/50 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between space-y-4"
@@ -223,7 +491,7 @@ export default function EnterpriseOverviewDashboardPage() {
             )}
           </div>
 
-          <Link 
+          <Link
             href="/dashboard/operations/closing"
             className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 border border-white/10"
           >
@@ -232,7 +500,7 @@ export default function EnterpriseOverviewDashboardPage() {
         </motion.div>
 
         {/* Manager / Admin Department Health Summary */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 15 }}
           animate={{ opacity: 1, x: 0 }}
           className="bg-neutral-900/50 border border-white/10 rounded-2xl p-6 backdrop-blur-md flex flex-col justify-between space-y-4"
@@ -264,7 +532,7 @@ export default function EnterpriseOverviewDashboardPage() {
             </div>
           </div>
 
-          <Link 
+          <Link
             href="/dashboard/operations/analytics"
             className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 border border-white/10"
           >
@@ -276,7 +544,7 @@ export default function EnterpriseOverviewDashboardPage() {
 
       {/* 4. My Assigned Tasks & Requirement Charters Read-Only Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Assigned Tasks Card */}
         <div className="bg-neutral-900/50 border border-white/10 rounded-2xl p-6 backdrop-blur-md space-y-4">
           <div className="flex items-center justify-between">

@@ -5,17 +5,18 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { 
-  LayoutDashboard, 
-  CheckSquare, 
+import Image from 'next/image';
+import {
+  LayoutDashboard,
+  CheckSquare,
   Layers,
   Users,
   UserCog,
   Calendar,
   Activity,
-  Menu, 
-  X, 
-  Bell, 
+  Menu,
+  X,
+  Bell,
   LogOut,
   FileText,
   PieChart,
@@ -76,7 +77,7 @@ export default function DashboardLayout({
       <div className="min-h-screen bg-neutral-950 text-white flex overflow-hidden">
         {/* Mobile Sidebar Overlay */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -85,13 +86,17 @@ export default function DashboardLayout({
         {/* Sidebar */}
         <div className={`fixed inset-y-0 left-0 z-50 w-72 bg-neutral-900/50 backdrop-blur-xl border-r border-white/10 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:inset-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between px-6 py-6 border-b border-white/10">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <LayoutDashboard className="w-6 h-6 text-blue-400" />
-                </div>
-                <span className="text-xl font-bold tracking-tight">DRS</span>
-              </div>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+              <Link href="/dashboard" className="flex items-center focus:outline-none">
+                <Image
+                  src="/ajay-group-logo.png"
+                  alt="AJAY Group"
+                  width={200}
+                  height={60}
+                  className="w-full h-auto object-contain max-w-[200px]"
+                  priority
+                />
+              </Link>
               <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-neutral-400 hover:text-white">
                 <X className="w-6 h-6" />
               </button>
@@ -112,11 +117,10 @@ export default function DashboardLayout({
                           <Link
                             key={item.name}
                             href={item.href}
-                            className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                              isActive 
-                                ? 'bg-blue-600/10 text-blue-400' 
+                            className={`flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all ${isActive
+                                ? 'bg-blue-600/10 text-blue-400'
                                 : 'text-neutral-400 hover:bg-white/5 hover:text-white'
-                            }`}
+                              }`}
                           >
                             <item.icon className={`w-5 h-5 mr-3 ${isActive ? 'text-blue-400' : 'text-neutral-500'}`} />
                             {item.name}
@@ -172,7 +176,7 @@ export default function DashboardLayout({
                 {pathname.split('/').pop() || 'Dashboard'}
               </h1>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <button className="relative p-2 text-neutral-400 hover:text-white transition-colors rounded-full hover:bg-white/5">
                 <Bell className="w-5 h-5" />

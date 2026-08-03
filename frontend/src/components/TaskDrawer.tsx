@@ -197,8 +197,8 @@ export default function TaskDrawer({ taskId, onClose, onTaskUpdated }: TaskDrawe
                       </div>
                       <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden">
                         <div 
-                          className="bg-indigo-500 h-full transition-all duration-500" 
-                          style={{ width: `${task.progress}%` }} 
+                          className="bg-indigo-500 h-full transition-all duration-500 w-[--progress]" 
+                          style={{ '--progress': `${task.progress}%` } as React.CSSProperties}
                         />
                       </div>
                     </div>

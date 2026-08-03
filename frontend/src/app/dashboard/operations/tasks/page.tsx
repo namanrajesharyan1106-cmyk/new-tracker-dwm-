@@ -352,8 +352,8 @@ export default function TasksPage() {
                         <span className="text-xs font-bold text-white">{task.progress}%</span>
                         <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
                           <div 
-                            className={`h-full rounded-full transition-all duration-500 ${task.progress === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
-                            style={{ width: `${task.progress}%` }}
+                            className={`h-full rounded-full transition-all duration-500 w-[--progress] ${task.progress === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`}
+                            style={{ '--progress': `${task.progress}%` } as React.CSSProperties}
                           />
                         </div>
                       </div>

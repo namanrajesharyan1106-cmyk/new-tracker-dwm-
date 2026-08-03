@@ -408,7 +408,7 @@ export default function EnterpriseRequirementWorkspacePage() {
                       <span className="font-bold text-emerald-400">{req.progress || 0}%</span>
                     </div>
                     <div className="h-2 bg-neutral-950 rounded-full overflow-hidden border border-white/5">
-                      <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${req.progress || 0}%` }} />
+                      <div className="h-full bg-emerald-500 transition-all duration-500 w-[--progress]" style={{ '--progress': `${req.progress || 0}%` } as React.CSSProperties} />
                     </div>
                   </div>
                 </div>

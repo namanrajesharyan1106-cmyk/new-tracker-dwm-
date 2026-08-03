@@ -147,7 +147,7 @@ export default function ExecutiveAnalyticsDashboard() {
                   <span className="font-bold">{p.progressPct}%</span>
                 </div>
                 <div className="w-full bg-neutral-800 rounded-full h-2">
-                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${p.progressPct}%` }} />
+                  <div className="bg-blue-500 h-2 rounded-full w-[--progress]" style={{ '--progress': `${p.progressPct}%` } as React.CSSProperties} />
                 </div>
               </div>
 

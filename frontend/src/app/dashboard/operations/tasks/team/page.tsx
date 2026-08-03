@@ -404,7 +404,7 @@ export default function TeamExecutionResourceBoard() {
                                 <span className="text-[10px] font-bold text-blue-400">{t.status}</span>
                               </div>
                               <div className="w-full bg-neutral-800 rounded-full h-1.5">
-                                <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${t.progress || 0}%` }} />
+                                <div className="bg-blue-500 h-1.5 rounded-full w-[--progress]" style={{ '--progress': `${t.progress || 0}%` } as React.CSSProperties} />
                               </div>
                             </div>
                           ))
